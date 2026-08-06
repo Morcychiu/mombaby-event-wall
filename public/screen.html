@@ -109,6 +109,10 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
 
+<!-- 引入 Firebase CDN 與 Confetti -->
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+
 <script>
     // 你的 Firebase 專屬設定
     const firebaseConfig = {
@@ -125,6 +129,9 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
+    // 🏆 新增變數：記錄開始監聽的時間戳記
+    let lastClearTime = localStorage.getItem('nestle_last_clear_time') || 0;
+
     // 動態取得 QR Code
     fetch('/api/qrcode')
         .then(res => res.json())
@@ -132,18 +139,20 @@
             document.getElementById('qr-image').src = data.qrCodeUrl;
         });
 
-    // 實時監聽雲端資料庫：有新留言或重新整理時，自動載入並呈現
-    db.ref('notes').on('child_added', (snapshot) => {
-        const noteData = snapshot.val();
-        renderNote(noteData);
-    });
-
-    // 監聽清空動作
-    db.ref('notes').on('value', (snapshot) => {
-        if (!snapshot.exists()) {
-            document.getElementById('notes-container').innerHTML = '';
-        }
-    });
+    // 🏆 修改監聽：只載入 timestamp 大於 lastClearTime 的留言 (即清空後的留言)
+    function startListening() {
+        // 先移除所有舊的監聽
+        db.ref('notes').off();
+        
+        // 只抓取在上次清空時間點之後的新留言
+        db.ref('notes').orderByChild('timestamp').startAfter(parseInt(lastClearTime)).on('child_added', (snapshot) => {
+            const noteData = snapshot.val();
+            // 雙重確認，有些 Firebase 實時同步特性可能導致 startAfter 失效
+            if(noteData.timestamp > lastClearTime) {
+                renderNote(noteData);
+            }
+        });
+    }
 
     function renderNote(data) {
         const container = document.getElementById('notes-container');
@@ -156,20 +165,22 @@
         container.appendChild(note);
     }
 
-    // 清空雲端資料庫中的留言
+    // 🏆 核心清空邏輯：現場清空並更新「清空時間戳記」
     function clearAllNotes() {
-        if (confirm("確定要暫時清空大螢幕畫面嗎？（雲端資料庫仍會完整保留所有紀錄）")) {
-            // 1. 停止監聽資料庫的新增事件，避免清空後又自動載入舊留言
-            db.ref('notes').off('child_added');
+        if (confirm("確定要暫時清空大螢幕畫面嗎？\n\n（現場舊留言將不再顯示，但雲端資料庫仍會完整保留所有紀錄，重新整理後依然只顯示清空後的新留言）")) {
             
-            // 2. 只清空大螢幕畫面上的便利貼元素
+            // 1. 記錄當前的時間戳記點，並存入 localStorage 確保重新整理後有效
+            lastClearTime = Date.now();
+            localStorage.setItem('nestle_last_clear_time', lastClearTime);
+            
+            // 2. 停止監聽
+            db.ref('notes').off();
+            
+            // 3. 實體清空畫面
             document.getElementById('notes-container').innerHTML = '';
             
-            // 3. 重新建立監聽：清空畫面後，現場若有「新送出」的留言，依然能即時跳出來
-            db.ref('notes').on('child_added', (snapshot) => {
-                const noteData = snapshot.val();
-                renderNote(noteData);
-            });
+            // 4. 重啟監聽 (這時 startAfter 就會生效，只抓取當下以後的留言)
+            startListening();
         }
     }
 
@@ -201,6 +212,10 @@
             confetti({ particleCount: 200, spread: 100, origin: { y: 0.8 } });
         }
     }
+
+    // 🏆 網頁開啟時自動啟動監聽
+    startListening();
+
 </script>
 </body>
 </html>
