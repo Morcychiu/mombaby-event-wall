@@ -12,10 +12,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 
 // 儲存所有留言 (記憶體)
-let notes = [
-    { text: "祝 LINE OA & 系統合併順利大成功！🎉", color: "bg-amber-100/95 border-amber-300 text-amber-950", x: 20, y: 25, rot: -4 },
-    { text: "雀巢母嬰營養新 Logo 超讚！更溫暖感人了✨", color: "bg-rose-100/95 border-rose-300 text-rose-950", x: 55, y: 30, rot: 3 }
-];
+let notes = [];
 
 // 取得大螢幕頁面
 app.get('/', (req, res) => {
