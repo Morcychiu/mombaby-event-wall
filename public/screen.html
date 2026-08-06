@@ -158,8 +158,18 @@
 
     // 清空雲端資料庫中的留言
     function clearAllNotes() {
-        if (confirm("確定要清空現場大螢幕上的所有留言嗎？")) {
-            db.ref('notes').remove();
+        if (confirm("確定要暫時清空大螢幕畫面嗎？（雲端資料庫仍會完整保留所有紀錄）")) {
+            // 1. 停止監聽資料庫的新增事件，避免清空後又自動載入舊留言
+            db.ref('notes').off('child_added');
+            
+            // 2. 只清空大螢幕畫面上的便利貼元素
+            document.getElementById('notes-container').innerHTML = '';
+            
+            // 3. 重新建立監聽：清空畫面後，現場若有「新送出」的留言，依然能即時跳出來
+            db.ref('notes').on('child_added', (snapshot) => {
+                const noteData = snapshot.val();
+                renderNote(noteData);
+            });
         }
     }
 
