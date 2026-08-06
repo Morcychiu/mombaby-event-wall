@@ -105,75 +105,92 @@
         </div>
     </footer>
 
-    <script>
-        const socket = io();
+<!-- 引入 Firebase CDN 與 Confetti -->
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
 
-        // 載入 QR Code
-        fetch('/api/qrcode')
-            .then(res => res.json())
-            .then(data => {
-                document.getElementById('qr-image').src = data.qrCodeUrl;
+<script>
+    // 你的 Firebase 專屬設定
+    const firebaseConfig = {
+      apiKey: "AIzaSyCJtR4yRWe-dQ_4qJGl4y39YgEPoyILVeo",
+      authDomain: "nestle-wall.firebaseapp.com",
+      databaseURL: "https://nestle-wall-default-rtdb.firebaseio.com",
+      projectId: "nestle-wall",
+      storageBucket: "nestle-wall.firebasestorage.app",
+      messagingSenderId: "221913718342",
+      appId: "1:221913718342:web:e281e0775df7d1926db447"
+    };
+
+    // 初始化 Firebase
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    // 動態取得 QR Code
+    fetch('/api/qrcode')
+        .then(res => res.json())
+        .then(data => {
+            document.getElementById('qr-image').src = data.qrCodeUrl;
+        });
+
+    // 實時監聽雲端資料庫：有新留言或重新整理時，自動載入並呈現
+    db.ref('notes').on('child_added', (snapshot) => {
+        const noteData = snapshot.val();
+        renderNote(noteData);
+    });
+
+    // 監聽清空動作
+    db.ref('notes').on('value', (snapshot) => {
+        if (!snapshot.exists()) {
+            document.getElementById('notes-container').innerHTML = '';
+        }
+    });
+
+    function renderNote(data) {
+        const container = document.getElementById('notes-container');
+        const note = document.createElement('div');
+        note.className = `sticky-note absolute p-4 w-40 h-40 border ${data.color} rounded-xl flex items-center justify-center text-center font-medium text-sm leading-relaxed shadow-lg`;
+        note.style.left = `${data.x}%`;
+        note.style.top = `${data.y}%`;
+        note.style.setProperty('--rot', `${data.rot}deg`);
+        note.innerText = data.text;
+        container.appendChild(note);
+    }
+
+    // 清空雲端資料庫中的留言
+    function clearAllNotes() {
+        if (confirm("確定要清空現場大螢幕上的所有留言嗎？")) {
+            db.ref('notes').remove();
+        }
+    }
+
+    function playFanfareSound() {
+        try {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            const ctx = new AudioContext();
+            const notes = [261.63, 329.63, 392.00, 523.25, 659.25, 783.99];
+            notes.forEach((freq, index) => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(freq, ctx.currentTime + index * 0.08);
+                gain.gain.setValueAtTime(0.3, ctx.currentTime + index * 0.08);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + index * 0.08 + 0.5);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(ctx.currentTime + index * 0.08);
+                osc.stop(ctx.currentTime + index * 0.08 + 0.5);
             });
+        } catch(e){}
+    }
 
-        // 監聽歷史留言
-        socket.on('init-notes', (notes) => {
-            document.getElementById('notes-container').innerHTML = '';
-            notes.forEach(renderNote);
-        });
-
-        // 監聽新留言 (即時跳出)
-        socket.on('new-note', (data) => {
-            renderNote(data);
-        });
-
-        // 清空留言
-        socket.on('clear-notes', () => {
-            document.getElementById('notes-container').innerHTML = '';
-        });
-
-        function renderNote(data) {
-            const container = document.getElementById('notes-container');
-            const note = document.createElement('div');
-            note.className = `sticky-note absolute p-4 w-40 h-40 border ${data.color} rounded-xl flex items-center justify-center text-center font-medium text-sm leading-relaxed shadow-lg`;
-            note.style.left = `${data.x}%`;
-            note.style.top = `${data.y}%`;
-            note.style.setProperty('--rot', `${data.rot}deg`);
-            note.innerText = data.text;
-            container.appendChild(note);
+    function triggerCeremony() {
+        playFanfareSound();
+        document.getElementById('ceremony-trigger').classList.add('hidden');
+        document.getElementById('logo-display').classList.remove('hidden');
+        if (typeof confetti === 'function') {
+            confetti({ particleCount: 200, spread: 100, origin: { y: 0.8 } });
         }
-
-        function clearAllNotes() {
-            socket.emit('clear-notes');
-        }
-
-        function playFanfareSound() {
-            try {
-                const AudioContext = window.AudioContext || window.webkitAudioContext;
-                const ctx = new AudioContext();
-                const notes = [261.63, 329.63, 392.00, 523.25, 659.25, 783.99];
-                notes.forEach((freq, index) => {
-                    const osc = ctx.createOscillator();
-                    const gain = ctx.createGain();
-                    osc.type = 'triangle';
-                    osc.frequency.setValueAtTime(freq, ctx.currentTime + index * 0.08);
-                    gain.gain.setValueAtTime(0.3, ctx.currentTime + index * 0.08);
-                    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + index * 0.08 + 0.5);
-                    osc.connect(gain);
-                    gain.connect(ctx.destination);
-                    osc.start(ctx.currentTime + index * 0.08);
-                    osc.stop(ctx.currentTime + index * 0.08 + 0.5);
-                });
-            } catch(e){}
-        }
-
-        function triggerCeremony() {
-            playFanfareSound();
-            document.getElementById('ceremony-trigger').classList.add('hidden');
-            document.getElementById('logo-display').classList.remove('hidden');
-            if (typeof confetti === 'function') {
-                confetti({ particleCount: 200, spread: 100, origin: { y: 0.8 } });
-            }
-        }
-    </script>
+    }
+</script>
 </body>
 </html>
