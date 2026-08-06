@@ -48,34 +48,56 @@
         </div>
     </div>
 
-    <script>
-        const socket = io();
-        let selectedColor = 'bg-amber-100/95 border-amber-300 text-amber-950';
+<!-- 引入 Firebase CDN -->
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
 
-        function selectColor(colorClass, btn) {
-            selectedColor = colorClass;
-            document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('scale-110', 'shadow-sm'));
-            btn.classList.add('scale-110', 'shadow-sm');
-        }
+<script>
+    // 你的 Firebase 專屬設定
+    const firebaseConfig = {
+      apiKey: "AIzaSyCJtR4yRWe-dQ_4qJGl4y39YgEPoyILVeo",
+      authDomain: "nestle-wall.firebaseapp.com",
+      databaseURL: "https://nestle-wall-default-rtdb.firebaseio.com",
+      projectId: "nestle-wall",
+      storageBucket: "nestle-wall.firebasestorage.app",
+      messagingSenderId: "221913718342",
+      appId: "1:221913718342:web:e281e0775df7d1926db447"
+    };
 
-        function sendNote() {
-            const input = document.getElementById('note-text');
-            const text = input.value.trim();
-            if (!text) return alert("請輸入祝福留言內容喔！");
+    // 初始化 Firebase
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
 
-            // 發送給 Socket.io 後端
-            socket.emit('send-note', {
-                text: text,
-                color: selectedColor
-            });
+    let selectedColor = 'bg-amber-100/95 border-amber-300 text-amber-950';
 
-            input.value = '';
-            
-            // 顯示成功提示
-            const toast = document.getElementById('success-toast');
-            toast.classList.remove('hidden');
-            setTimeout(() => toast.classList.add('hidden'), 3000);
-        }
-    </script>
+    function selectColor(colorClass, btn) {
+        selectedColor = colorClass;
+        document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('scale-110', 'shadow-sm'));
+        btn.classList.add('scale-110', 'shadow-sm');
+    }
+
+    function sendNote() {
+        const input = document.getElementById('note-text');
+        const text = input.value.trim();
+        if (!text) return alert("請輸入祝福留言內容喔！");
+
+        // 直接寫入雲端 Firebase 資料庫 (永久保存)
+        db.ref('notes').push({
+            text: text,
+            color: selectedColor,
+            x: Math.floor(Math.random() * 65) + 15,
+            y: Math.floor(Math.random() * 40) + 20,
+            rot: (Math.random() * 14 - 7).toFixed(1),
+            timestamp: Date.now()
+        });
+
+        input.value = '';
+        
+        // 顯示成功提示
+        const toast = document.getElementById('success-toast');
+        toast.classList.remove('hidden');
+        setTimeout(() => toast.classList.add('hidden'), 3000);
+    }
+</script>
 </body>
 </html>
