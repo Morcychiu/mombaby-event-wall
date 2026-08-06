@@ -1,0 +1,14 @@
+{
+  "name": "nestle-celebration-wall",
+  "version": "1.0.0",
+  "description": "LINE OA & System Integration Celebration Wall",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "socket.io": "^4.7.2",
+    "qrcode": "^1.5.3"
+  }
+}

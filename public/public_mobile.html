@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>現場留言牆 - 寫下您的祝福</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+<body class="bg-[#FAF7F2] min-h-screen flex items-center justify-center p-4 font-sans text-gray-800">
+
+    <div class="bg-white/95 backdrop-blur-md p-6 rounded-3xl shadow-2xl border border-stone-200/80 w-full max-w-md">
+        <!-- 頁首品牌標誌 -->
+        <div class="text-center mb-5">
+            <span class="text-[10px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-3 py-1 rounded-full uppercase tracking-wider">
+                LINE OA & System Integration
+            </span>
+            <h1 class="text-xl font-extrabold text-[#002855] mt-2">傳送現場慶祝便利貼 📝</h1>
+            <p class="text-xs text-stone-400 mt-1">您的留言將會即時投射至現場大螢幕牆</p>
+        </div>
+
+        <!-- 便利貼顏色選擇 -->
+        <div class="mb-4">
+            <label class="block text-xs font-bold text-stone-600 mb-2">選擇便利貼顏色 / Choose Color：</label>
+            <div class="flex justify-around bg-stone-50 p-2.5 rounded-2xl border border-stone-200">
+                <button type="button" onclick="selectColor('bg-amber-100/95 border-amber-300 text-amber-950', this)" class="color-btn w-9 h-9 rounded-full bg-amber-200 border-2 border-amber-400 scale-110 shadow-sm transition"></button>
+                <button type="button" onclick="selectColor('bg-rose-100/95 border-rose-300 text-rose-950', this)" class="color-btn w-9 h-9 rounded-full bg-rose-200 border-2 border-rose-400 transition"></button>
+                <button type="button" onclick="selectColor('bg-sky-100/95 border-sky-300 text-sky-950', this)" class="color-btn w-9 h-9 rounded-full bg-sky-200 border-2 border-sky-400 transition"></button>
+                <button type="button" onclick="selectColor('bg-purple-100/95 border-purple-300 text-purple-950', this)" class="color-btn w-9 h-9 rounded-full bg-purple-200 border-2 border-purple-400 transition"></button>
+                <button type="button" onclick="selectColor('bg-emerald-100/95 border-emerald-300 text-emerald-950', this)" class="color-btn w-9 h-9 rounded-full bg-emerald-200 border-2 border-emerald-400 transition"></button>
+            </div>
+        </div>
+
+        <!-- 留言文字框 -->
+        <div class="mb-5">
+            <label class="block text-xs font-bold text-stone-600 mb-2">祝福內容 / Message (50字以內)：</label>
+            <textarea id="note-text" rows="4" maxlength="50" placeholder="例：祝 LINE OA & 系統合併大成功！🎉" class="w-full p-3.5 border border-stone-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-amber-400 bg-stone-50/50 text-stone-800 text-sm resize-none"></textarea>
+        </div>
+
+        <!-- 送出按鈕 -->
+        <button onclick="sendNote()" id="send-btn" class="w-full bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 active:scale-98 text-stone-900 font-extrabold py-3.5 rounded-2xl transition shadow-lg flex items-center justify-center space-x-2">
+            <span>送出便利貼投射至大螢幕 🚀</span>
+        </button>
+
+        <!-- 成功提醒 -->
+        <div id="success-toast" class="hidden mt-4 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs p-3 rounded-xl text-center font-medium animate-bounce">
+            🎉 已成功傳送！快看看現場大螢幕吧！
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        let selectedColor = 'bg-amber-100/95 border-amber-300 text-amber-950';
+
+        function selectColor(colorClass, btn) {
+            selectedColor = colorClass;
+            document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('scale-110', 'shadow-sm'));
+            btn.classList.add('scale-110', 'shadow-sm');
+        }
+
+        function sendNote() {
+            const input = document.getElementById('note-text');
+            const text = input.value.trim();
+            if (!text) return alert("請輸入祝福留言內容喔！");
+
+            // 發送給 Socket.io 後端
+            socket.emit('send-note', {
+                text: text,
+                color: selectedColor
+            });
+
+            input.value = '';
+            
+            // 顯示成功提示
+            const toast = document.getElementById('success-toast');
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 3000);
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LINE OA + 系統合併慶祝留言牆 (大螢幕)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        .wave-top-left {
+            position: absolute;
+            top: -10vw; left: -10vw; width: 45vw; height: 45vw;
+            background: radial-gradient(circle, rgba(254, 215, 170, 0.45) 0%, rgba(244, 114, 182, 0.3) 40%, rgba(147, 197, 253, 0.2) 65%, rgba(255,255,255,0) 80%);
+            border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%;
+            pointer-events: none;
+            filter: blur(10px);
+        }
+        .wave-bottom-right {
+            position: absolute;
+            bottom: -10vw; right: -10vw; width: 45vw; height: 45vw;
+            background: radial-gradient(circle, rgba(167, 243, 208, 0.4) 0%, rgba(253, 224, 71, 0.35) 40%, rgba(244, 114, 182, 0.2) 65%, rgba(255,255,255,0) 80%);
+            border-radius: 60% 40% 30% 70% / 50% 30% 70% 50%;
+            pointer-events: none;
+            filter: blur(10px);
+        }
+        @keyframes popIn {
+            0% { transform: scale(0) rotate(0deg); opacity: 0; }
+            80% { transform: scale(1.08) rotate(var(--rot)); }
+            100% { transform: scale(1) rotate(var(--rot)); opacity: 1; }
+        }
+        .sticky-note {
+            animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+            box-shadow: 3px 6px 15px rgba(0,0,0,0.08);
+        }
+        @keyframes revealLogo {
+            0% { transform: scale(0.3) translateY(30px); opacity: 0; }
+            60% { transform: scale(1.1) translateY(-10px); opacity: 1; }
+            100% { transform: scale(1) translateY(0); opacity: 1; }
+        }
+        .logo-revealed {
+            animation: revealLogo 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+    </style>
+</head>
+<body class="bg-[#FAF7F2] min-h-screen relative overflow-hidden font-sans text-gray-800 flex flex-col justify-between p-6">
+
+    <div class="wave-top-left"></div>
+    <div class="wave-bottom-right"></div>
+
+    <!-- 左上角動態 QR Code (供現場掃碼) -->
+    <div class="fixed top-6 left-6 z-50 bg-white/90 backdrop-blur-md p-3 rounded-2xl shadow-xl border border-stone-200 flex flex-col items-center">
+        <img id="qr-image" src="" alt="Scan QR Code" class="w-28 h-28 object-contain rounded-lg shadow-inner" />
+        <span class="text-[10px] font-bold text-stone-600 mt-1 tracking-wider uppercase">📲 掃碼即可現場留言</span>
+    </div>
+
+    <!-- 右上角 控制區 -->
+    <div class="fixed top-6 right-6 z-50 bg-white/90 backdrop-blur-md p-3 rounded-2xl shadow-lg border border-amber-200/60 flex items-center space-x-2">
+        <button onclick="clearAllNotes()" class="bg-stone-200 hover:bg-stone-300 text-stone-600 px-3 py-2 rounded-xl text-xs transition active:scale-95">
+            清空留言
+        </button>
+    </div>
+
+    <!-- 頂部標題區 -->
+    <header class="text-center z-10 mt-2 flex flex-col items-center">
+        <div class="inline-block bg-white/60 backdrop-blur-sm px-6 py-1.5 rounded-full border border-stone-200/80 shadow-sm mb-2">
+            <span class="text-xs font-semibold text-stone-500 uppercase tracking-widest">LINE OA & System Integration Celebration Wall</span>
+        </div>
+        <h1 class="text-3xl md:text-4xl font-extrabold text-[#002855] tracking-wide drop-shadow-sm">
+            LINE OA + 系統合併慶祝留言牆
+        </h1>
+        <p class="text-stone-500 text-xs md:text-sm mt-1.5 font-medium">
+            請掃描左上方專屬 QR Code，寫下您的慶祝祝福與期待！
+        </p>
+    </header>
+
+    <!-- 便利貼區域 -->
+    <div id="notes-container" class="absolute inset-0 z-0 pointer-events-none"></div>
+
+    <!-- 底部：Kais 啟動儀式區 -->
+    <footer class="text-center z-10 mb-2 flex flex-col items-center justify-center">
+        <div id="ceremony-trigger" class="transition-all duration-500 flex flex-col items-center">
+            <button onclick="triggerCeremony()" class="group relative inline-flex items-center justify-center px-8 py-4 text-base font-bold text-white bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 rounded-2xl shadow-xl hover:shadow-2xl hover:scale-105 active:scale-95 transition-all duration-300">
+                <span class="absolute -top-1 -right-1 flex h-4 w-4">
+                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                  <span class="relative inline-flex rounded-full h-4 w-4 bg-rose-500"></span>
+                </span>
+                <span class="mr-2 text-xl">🚀</span>
+                <div class="flex flex-col items-center">
+                    <span>請 Kais 開啟全新品牌 Logo 儀式</span>
+                    <span class="text-xs font-normal text-blue-100 mt-0.5 tracking-wide">Invite Kais to Launch the New Brand Logo Ceremony</span>
+                </div>
+            </button>
+            <p class="text-xs text-stone-400 mt-2">（點擊此按鈕將播放歡慶音效並揭曉全新品牌視覺 / Click to launch ceremony with music & fanfare）</p>
+        </div>
+
+        <div id="logo-display" class="hidden z-20">
+            <div class="bg-white/95 backdrop-blur-md px-10 py-5 rounded-3xl border-2 border-indigo-100 shadow-2xl flex flex-col items-center max-w-xl mx-auto logo-revealed">
+                <div class="text-xs font-bold text-amber-500 tracking-wider mb-2 uppercase">✨ 雀巢母嬰營養全新亮相 ✨</div>
+                <div class="flex items-center justify-center py-2 px-4 bg-white rounded-xl">
+                    <img src="雀巢母嬰營養logo_800x215.jpg" alt="Nestle mom & baby 雀巢母嬰營養" class="h-16 md:h-20 object-contain drop-shadow-sm" />
+                </div>
+                <span class="text-xs text-stone-400 mt-2 font-light tracking-widest">PARENT YOUR OWN WAY ‧ 支持你的育兒之路</span>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        const socket = io();
+
+        // 載入 QR Code
+        fetch('/api/qrcode')
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById('qr-image').src = data.qrCodeUrl;
+            });
+
+        // 監聽歷史留言
+        socket.on('init-notes', (notes) => {
+            document.getElementById('notes-container').innerHTML = '';
+            notes.forEach(renderNote);
+        });
+
+        // 監聽新留言 (即時跳出)
+        socket.on('new-note', (data) => {
+            renderNote(data);
+        });
+
+        // 清空留言
+        socket.on('clear-notes', () => {
+            document.getElementById('notes-container').innerHTML = '';
+        });
+
+        function renderNote(data) {
+            const container = document.getElementById('notes-container');
+            const note = document.createElement('div');
+            note.className = `sticky-note absolute p-4 w-40 h-40 border ${data.color} rounded-xl flex items-center justify-center text-center font-medium text-sm leading-relaxed shadow-lg`;
+            note.style.left = `${data.x}%`;
+            note.style.top = `${data.y}%`;
+            note.style.setProperty('--rot', `${data.rot}deg`);
+            note.innerText = data.text;
+            container.appendChild(note);
+        }
+
+        function clearAllNotes() {
+            socket.emit('clear-notes');
+        }
+
+        function playFanfareSound() {
+            try {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                const ctx = new AudioContext();
+                const notes = [261.63, 329.63, 392.00, 523.25, 659.25, 783.99];
+                notes.forEach((freq, index) => {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, ctx.currentTime + index * 0.08);
+                    gain.gain.setValueAtTime(0.3, ctx.currentTime + index * 0.08);
+                    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + index * 0.08 + 0.5);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(ctx.currentTime + index * 0.08);
+                    osc.stop(ctx.currentTime + index * 0.08 + 0.5);
+                });
+            } catch(e){}
+        }
+
+        function triggerCeremony() {
+            playFanfareSound();
+            document.getElementById('ceremony-trigger').classList.add('hidden');
+            document.getElementById('logo-display').classList.remove('hidden');
+            if (typeof confetti === 'function') {
+                confetti({ particleCount: 200, spread: 100, origin: { y: 0.8 } });
+            }
+        }
+    </script>
+</body>
+</html>
